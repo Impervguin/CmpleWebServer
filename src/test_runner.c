@@ -4,6 +4,7 @@
 // Declare suite functions from test files
 Suite *cache_suite(void);
 Suite *hash_suite(void);
+Suite *reader_suite(void);
 
 int main(void)
 {
@@ -22,6 +23,13 @@ int main(void)
     srunner_run_all(sr_hash, CK_NORMAL);
     number_failed += srunner_ntests_failed(sr_hash);
     srunner_free(sr_hash);
+
+    // Run reader tests
+    Suite *s_reader = reader_suite();
+    SRunner *sr_reader = srunner_create(s_reader);
+    srunner_run_all(sr_reader, CK_NORMAL);
+    number_failed += srunner_ntests_failed(sr_reader);
+    srunner_free(sr_reader);
 
     return (number_failed == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
 }
