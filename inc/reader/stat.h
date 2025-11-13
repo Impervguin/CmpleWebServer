@@ -2,6 +2,7 @@
 #define STAT_H__
 
 #include <stddef.h>
+#include <time.h>
 
 typedef enum  {
     RegulatFile = 0,
@@ -14,6 +15,10 @@ typedef struct {
     int error;
     size_t file_size;
     FileType type;
+
+    time_t last_modified;
+    time_t last_accessed;
+    time_t created;
 } FileStatResponse;
 
 FileStatResponse GetFileStat(const char *path);

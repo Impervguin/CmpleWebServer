@@ -19,6 +19,11 @@ FileStatResponse _MakeStatResponse(struct stat *sb) {
     } else {
         response.type = Other; 
     }
+
+    response.last_modified = sb->st_mtime;
+    response.last_accessed = sb->st_atime;
+    response.created = sb->st_ctime;
+    
     return response;
 }
 

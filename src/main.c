@@ -1,62 +1,58 @@
-#include <reader/reader.h>
-#include <reader/stat.h>
+#include "server/request.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <errno.h>
+#include<stdio.h>
+#include<string.h>
 
-char Buffer[1024];
-
-void Callback(FileReadResponse *response, void *userData) {
-    (void)userData;
-    if (response->error != ERR_OK) {
-        fprintf(stderr, "Error: %d\n", response->error);
-        return;
-    }
-    printf("Read %zu bytes\n", response->bytesRead);
-    printf("Buffer: %s\n", Buffer);
-    free(response);
-}
 
 int main(int argc, char **argv) {
     (void)argc;
     (void)argv;
 
-    FileReaderPool *pool = CreateFileReaderPool(&(ReaderPoolParams) {
-        .max_requests = 10,
-        .worker_count = 4,
-    });
-
-    if (!pool) {
-        fprintf(stderr, "Failed to create reader pool\n");
+    HttpRequest *request = CreateHttpRequest(0);
+    if (request == NULL) {
         return 1;
     }
 
-    FileReadSet set = QueueFile(pool, (FileReadRequest) {
-        .path = "/home/impervguin/Projects/CmpleWebServer/src/main.c",
-        .buffer = Buffer,
-        .bufferSize = sizeof(Buffer),
-        .callback = Callback,
-        .userData = NULL,
-    });
+    char *request_buffer = "GET /hello.html HTTP/1.1\r\n"
+                           "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:78.0) Gecko/20100101 Firefox/78.0\r\n"
+                           "Host: localhost:8080\r\n"
+                           "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8\r\n"
+                           "Accept-Language: en-US,en;q=0.5\r\n"
+                           "Accept-Encoding: gzip, deflate\r\n"
+                           "Connection: keep-alive\r\n"
+                           "Upgrade-Insecure-Requests: 1\r\n"
+                           "Cache-Control: max-age=0\r\n"
+                           "\r\n";
+    DynamicString *request_dyn_buffer = CreateDynamicString(strlen(request_buffer));
+    if (request_dyn_buffer == NULL) {
+        return 1;
+    }
+    SetDynamicStringChar(request_dyn_buffer, request_buffer);
+    request->request_buffer = request_dyn_buffer;
+    printf("Request: %s\n", request->request_buffer->data);
 
-    if (set.error != ERR_OK) {
-        fprintf(stderr, "Failed to queue file: %d\n", set.error);
+    int err = ParseHttpRequest(request);
+    if (err != ERR_OK) {
+        DestroyHttpRequest(request);
         return 1;
     }
 
-    sleep(1);
-    ReaderPoolStats stats = GetReaderPoolStats(pool);
-    printf("Completed: %zu\n", stats.completed_requests);
-    printf("Failed: %zu\n", stats.failed_requests);
-    printf("Canceled: %zu\n", stats.canceled_requests);
-    printf("Total: %zu\n", stats.total_requests);
-    printf("Pending: %zu\n", stats.pending_requests);
-    
+    printf("Parsed request: %s\n", request->parsed_request.path->data);
 
-    ShutdownFileReaderPool(pool);
-    DestroyFileReaderPool(pool);
+    err = FillHttpResponseHeader(request, GetFileStat("testdata/test.txt"));
+    if (err != ERR_OK) {
+        DestroyHttpRequest(request);
+        return 1;
+    }
+
+    err = PrepareHttpResponseHeader(request);
+    if (err != ERR_OK) {
+        DestroyHttpRequest(request);
+        return 1;
+    }
+
+    printf("%s\n", request->response.header_buffer->data);
+    printf("Path: %s\n", request->parsed_request.path->data);
+
+    return 0;
 }
-

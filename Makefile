@@ -6,8 +6,8 @@ SRC_DIR = src
 INC_DIR = inc
 OBJ_DIR = obj
 
-SOURCES = $(SRC_DIR)/main.c $(SRC_DIR)/hash.c $(SRC_DIR)/cache/cache.c $(SRC_DIR)/reader/reader.c $(SRC_DIR)/reader/stat.c
-OBJECTS = $(OBJ_DIR)/main.o $(OBJ_DIR)/hash.o $(OBJ_DIR)/cache.o $(OBJ_DIR)/reader.o $(OBJ_DIR)/stat.o
+SOURCES = $(SRC_DIR)/main.c $(SRC_DIR)/hash.c $(SRC_DIR)/cache/cache.c $(SRC_DIR)/reader/reader.c $(SRC_DIR)/reader/stat.c $(SRC_DIR)/server/request.c $(SRC_DIR)/utils/string.c $(SRC_DIR)/utils/date.c
+OBJECTS = $(OBJ_DIR)/main.o $(OBJ_DIR)/hash.o $(OBJ_DIR)/cache.o $(OBJ_DIR)/reader.o $(OBJ_DIR)/stat.o $(OBJ_DIR)/request.o $(OBJ_DIR)/string.o $(OBJ_DIR)/date.o
 EXECUTABLE = main.app
 
 TEST_SOURCES = $(SRC_DIR)/test_runner.c $(SRC_DIR)/cache/test_cache.c $(SRC_DIR)/test_hash.c $(SRC_DIR)/reader/test_reader.c
@@ -43,6 +43,15 @@ $(OBJ_DIR)/reader.o: $(SRC_DIR)/reader/reader.c | $(OBJ_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(OBJ_DIR)/stat.o: $(SRC_DIR)/reader/stat.c | $(OBJ_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(OBJ_DIR)/request.o: $(SRC_DIR)/server/request.c | $(OBJ_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(OBJ_DIR)/string.o: $(SRC_DIR)/utils/string.c | $(OBJ_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(OBJ_DIR)/date.o: $(SRC_DIR)/utils/date.c | $(OBJ_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(OBJ_DIR)/test_cache.o: $(SRC_DIR)/cache/test_cache.c | $(OBJ_DIR)
