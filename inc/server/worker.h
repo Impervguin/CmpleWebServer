@@ -20,7 +20,9 @@ Worker *CreateWorker(const WorkerParams *params);
 void DestroyWorker(Worker *worker);
 
 int StartWorker(Worker *worker);
-int StopWorker(Worker *worker);
+int ShutdownWorker(Worker *worker);
+int GracefullyShutdownWorker(Worker *worker);
+
 
 int AddRequest(Worker *worker, int socketfd);
 pthread_t GetWorkerThread(Worker *worker);

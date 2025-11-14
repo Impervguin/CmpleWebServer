@@ -11,6 +11,8 @@
 #include <time.h>
 
 #define INITITAL_REQUEST_BUFFER_SIZE 3192
+#define INITITAL_PARSED_BUFFERS_SIZE 1024
+#define INITIAL_RESPONSE_HEADER_SIZE 1024
 
 typedef enum  {
     HTTP_REQUEST_GET,
@@ -27,56 +29,67 @@ typedef enum {
     HTTP_STATE_ERROR
 } HttpRequestState;
 
-typedef struct ParsedHttpRequest ParsedHttpRequest;
-typedef struct HttpResponseHeader HttpResponseHeader;
-typedef struct HttpResponse HttpResponse;
+typedef struct  {
+    DynamicString *request_buffer;
+} RawHttpRequest;
 
-struct ParsedHttpRequest {
+typedef struct {
     HttpRequestMethod method;
     DynamicString *path;
     DynamicString *user_agent;
     DynamicString *host;    
-};
+} ParsedHttpRequest ;
 
-struct HttpResponseHeader {
+typedef struct  {
     ContentType content_type;
     time_t date;
     time_t last_modified;
     size_t content_length;
-};
+} HttpResponseDataHeader;
 
-struct HttpResponse {
-    HttpResponseHeader header;
-    bool header_filled;
+typedef struct  {
+    ReadBuffer *body;
+} HttpResponseDataBody;
+
+typedef struct  {
+    HttpResponseDataHeader header;
+    HttpResponseDataBody body;
+} HttpResponseData;
+
+typedef struct  {
     DynamicString *header_buffer;
     size_t header_bytes_written;
-
-    ReadBuffer *body;
+    ReadBuffer *body_buffer;
     size_t body_bytes_written;
-};
+} HttpResponseRaw;
 
 typedef struct {
     int socketfd;
     HttpRequestState state;
-    
-    DynamicString *request_buffer;
-    bool request_parsed;
-    ParsedHttpRequest parsed_request;
 
-    HttpResponse response;
+    RawHttpRequest *raw_request;
+    ParsedHttpRequest *parsed_request;
+
+    HttpResponseData *response;
+    HttpResponseRaw *raw_response;
 } HttpRequest;
-
 
 
 HttpRequest *CreateHttpRequest(int socketfd);
 void DestroyHttpRequest(HttpRequest *request);
 
 int ParseHttpRequest(HttpRequest *request);
-
 int FillHttpResponseHeader(HttpRequest *request, FileStatResponse stat);
-int PrepareHttpResponseHeader(HttpRequest *request);
-int PrepareHttpForbiddenResponse(HttpRequest *request);
-int PrepareHttpNotFoundResponse(HttpRequest *request);
-int PrepareHttpUnsupportedMethodResponse(HttpRequest *request);
+int AddHttpResponseBody(HttpRequest *request, ReadBuffer *body);
+int PrepareHttpResponseOk(HttpRequest *request);
+int PrepareHttpResponseForbidden(HttpRequest *request);
+int PrepareHttpResponseNotFound(HttpRequest *request);
+int PrepareHttpResponseUnsupportedMethod(HttpRequest *request);
+
+int ReadRequest(HttpRequest *request);
+int WriteRequest(HttpRequest *request);
+
+int AddPathPrefix(HttpRequest *request, const char *prefix);
+int ReplacePath(HttpRequest *request, const char *path);
 
 #endif // REQUEST_H
