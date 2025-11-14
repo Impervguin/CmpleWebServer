@@ -97,7 +97,6 @@ int  ParseHttpRequest(HttpRequest *request) {
                 DestroyDynamicString(parsed_request->user_agent);
                 return err;
             }
-            MakeNullTerminatedString(parsed_request->user_agent);
         } else if (strncmp(line, "Host: ", 6) == 0) {
             parsed_request->host = CreateDynamicString(10);
             if (parsed_request->host == NULL) {
@@ -108,7 +107,6 @@ int  ParseHttpRequest(HttpRequest *request) {
                 DestroyDynamicString(parsed_request->host);
                 return err;
             }
-            MakeNullTerminatedString(parsed_request->host);
         };
     }
     // Analyze method
@@ -144,7 +142,6 @@ int  ParseHttpRequest(HttpRequest *request) {
         DestroyDynamicString(method_buffer);
         return err;
     }
-    MakeNullTerminatedString(parsed_request->path);
     
     // Http version
     char *version = NULL;
@@ -163,32 +160,6 @@ int  ParseHttpRequest(HttpRequest *request) {
     return ERR_OK;
 }
 
-ContentType _GetContentType(const char *path) {
-    if (strstr(path, ".html") != NULL) {
-        return CONTENT_TYPE_TEXT_HTML;
-    } else if (strstr(path, ".css") != NULL) {
-        return CONTENT_TYPE_TEXT_CSS;
-    } else if (strstr(path, ".js") != NULL) {
-        return CONTENT_TYPE_APPLICATION_JAVASCRIPT;
-    } else if (strstr(path, ".png") != NULL) {
-        return CONTENT_TYPE_IMAGE_PNG;
-    } else if (strstr(path, ".jpg") != NULL) {
-        return CONTENT_TYPE_IMAGE_JPEG;
-    } else if (strstr(path, ".gif") != NULL) {
-        return CONTENT_TYPE_IMAGE_GIF;
-    } else if (strstr(path, ".svg") != NULL) {
-        return CONTENT_TYPE_IMAGE_SVG;
-    } else if (strstr(path, ".json") != NULL) {
-        return CONTENT_TYPE_APPLICATION_JSON;
-    } else if (strstr(path, ".xml") != NULL) {
-        return CONTENT_TYPE_APPLICATION_JSON;
-    } else if (strstr(path, ".ico") != NULL) {
-        return CONTENT_TYPE_IMAGE_ICO;
-    } else {
-        return CONTENT_TYPE_TEXT_PLAIN;
-    }
-}
-
 int FillHttpResponseHeader(HttpRequest *request, FileStatResponse stat) {
     if (!request->request_parsed) {
         return ERR_REQUEST_NOT_PARSED;
@@ -197,39 +168,12 @@ int FillHttpResponseHeader(HttpRequest *request, FileStatResponse stat) {
         return ERR_OK;
     }
     HttpResponse *response = &request->response;
-    response->header.content_type = _GetContentType(request->parsed_request.path->data);
+    response->header.content_type = GetContentType(request->parsed_request.path->data);
     response->header.date = time(NULL);
     response->header.last_modified = stat.last_modified;
     response->header.content_length = stat.file_size;
     response->header_filled = true;
     return ERR_OK;
-}
-
-const char *_GetContentTypeString(ContentType content_type) {
-    switch (content_type) {
-        case CONTENT_TYPE_TEXT_PLAIN:
-            return TEXT_PLAIN_CONTENT_TYPE;
-        case CONTENT_TYPE_TEXT_HTML:
-            return TEXT_HTML_CONTENT_TYPE;
-        case CONTENT_TYPE_TEXT_CSS:
-            return TEXT_CSS_CONTENT_TYPE;
-        case CONTENT_TYPE_IMAGE_PNG:
-            return IMAGE_PNG_CONTENT_TYPE;
-        case CONTENT_TYPE_IMAGE_JPEG:
-            return IMAGE_JPEG_CONTENT_TYPE;
-        case CONTENT_TYPE_IMAGE_GIF:
-            return IMAGE_GIF_CONTENT_TYPE;
-        case CONTENT_TYPE_IMAGE_SVG:
-            return IMAGE_SVG_CONTENT_TYPE;
-        case CONTENT_TYPE_APPLICATION_JAVASCRIPT:
-            return APPLICATION_JSON_CONTENT_TYPE;
-        case CONTENT_TYPE_APPLICATION_JSON:
-            return APPLICATION_JSON_CONTENT_TYPE;
-        case CONTENT_TYPE_IMAGE_ICO:
-            return IMAGE_ICO_CONTENT_TYPE;
-        default:
-            return NULL;
-    }
 }
 
 int _WriteStatusLine(HttpResponse *response, const char *version, const char *status) {
@@ -289,7 +233,7 @@ int PrepareHttpResponseHeader(HttpRequest *request) {
 
     // Add headers
     // Content-Type
-    const char *content_type = _GetContentTypeString(response->header.content_type);
+    const char *content_type = GetContentTypeString(response->header.content_type);
     if (content_type == NULL) {
         return ERR_HTTP_PARSE;
     }

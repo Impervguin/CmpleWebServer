@@ -1,5 +1,5 @@
 #include "cache/cache.h"
-#include "hash.h"
+#include "utils/hash.h"
 
 #define _GNU_SOURCE
 
@@ -360,10 +360,8 @@ int _freeLRUBuffersMemory(CacheManager *manager, size_t memory) {
 // If cache with this buffer do not fit to max_memory - tries to free least recently used buffers. If there are not enough buffers to free - returns ERR_MEMORY_LIMIT_EXCEEDED
 // If buffer count limit is reached - tries to free least recently used buffer. If all buffers are used - returns ERR_BUFFER_COUNT_EXCEEDED
 int CreateBuffer(CacheManager *manager, const char *key, const size_t bufferSize) {
-    printf("Creating buffer\n");
     pthread_mutex_lock(&manager->mutex);
-    printf("Locked\n");
-
+    
     if (manager->max_buffer_size < bufferSize) {
         pthread_mutex_unlock(&manager->mutex);
         return ERR_BUFFER_SIZE_LIMIT;
@@ -442,9 +440,7 @@ ReadBuffer *_CreateReadBuffer(CacheBuffer *buffer) {
 
     BufferMeta *meta = buffer->meta;
     
-    printf("Read buffer locked\n");
     pthread_mutex_lock(&meta->_mutex);
-    printf("Read buffer mutex locked\n");
     meta->_reference_count++;
     meta->_last_reference_time = time(NULL);
     pthread_mutex_unlock(&meta->_mutex);
@@ -453,9 +449,7 @@ ReadBuffer *_CreateReadBuffer(CacheBuffer *buffer) {
 }
 
 ReadBuffer *GetBuffer(CacheManager *manager, const char *key) {
-    printf("Getting buffer\n");
     pthread_mutex_lock(&manager->mutex);
-    printf("Locked\n");
     unsigned long key_hash = hash(key, manager->hash_table_size);
     HashTableNode *node = manager->hash_table[key_hash];
     while (node != NULL) {
@@ -468,7 +462,6 @@ ReadBuffer *GetBuffer(CacheManager *manager, const char *key) {
         pthread_mutex_unlock(&manager->mutex);
         return NULL;
     }
-    printf("Creating read buffer\n");
     ReadBuffer *buffer = _CreateReadBuffer(node->buffer);
     if (buffer == NULL) {
         pthread_mutex_unlock(&manager->mutex);

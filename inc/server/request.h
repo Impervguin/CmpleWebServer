@@ -3,13 +3,14 @@
 
 #include "utils/string.h"
 #include "cache/cache.h"
-#include "reader/stat.h"    
+#include "reader/stat.h"
+#include "utils/content.h"    
 
 #include <stddef.h>
 #include <stdbool.h>
 #include <time.h>
 
-#define INITITAL_REQUEST_BUFFER_SIZE 1024
+#define INITITAL_REQUEST_BUFFER_SIZE 3192
 
 typedef enum  {
     HTTP_REQUEST_GET,
@@ -25,21 +26,6 @@ typedef enum {
     HTTP_STATE_DONE,
     HTTP_STATE_ERROR
 } HttpRequestState;
-
-typedef enum {
-    CONTENT_TYPE_TEXT_PLAIN,
-    CONTENT_TYPE_TEXT_HTML,
-    CONTENT_TYPE_TEXT_CSS,
-    
-    CONTENT_TYPE_IMAGE_PNG,
-    CONTENT_TYPE_IMAGE_JPEG,
-    CONTENT_TYPE_IMAGE_GIF,
-    CONTENT_TYPE_IMAGE_SVG,
-    CONTENT_TYPE_IMAGE_ICO,
-    CONTENT_TYPE_APPLICATION_JAVASCRIPT,
-    CONTENT_TYPE_APPLICATION_JSON,
-} ContentType;
-
 
 typedef struct ParsedHttpRequest ParsedHttpRequest;
 typedef struct HttpResponseHeader HttpResponseHeader;

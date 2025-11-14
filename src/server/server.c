@@ -64,18 +64,14 @@ Server *CreateServer(const ServerParams *params) {
     ReaderPoolParams reader_pool_params;
     reader_pool_params.max_requests = params->max_requests;
     reader_pool_params.worker_count = params->reader_count;
-
-    printf("Reader pool params created\n");
-
+    
     pthread_mutex_init(&server->mutex, NULL);
     server->reader_pool = CreateFileReaderPool(&reader_pool_params);
     if (server->reader_pool == NULL) {
         free(server);
         return NULL;
     }
-
-    printf("File reader pool created\n");
-
+    
     CacheParams cache_manager_params;
     cache_manager_params.max_memory = params->max_cache_size;
     cache_manager_params.max_entries = params->max_cache_entries;
@@ -87,9 +83,7 @@ Server *CreateServer(const ServerParams *params) {
         free(server);
         return NULL;
     }
-
-    printf("Cache manager created\n");
-
+    
     server->worker_count = params->worker_count;
     server->workers = malloc(sizeof(Worker *) * params->worker_count);
     if (server->workers == NULL) {
@@ -98,11 +92,8 @@ Server *CreateServer(const ServerParams *params) {
         free(server);
         return NULL;
     }
-
-    printf("Workers created\n");
-
+    
     for (size_t i = 0; i < params->worker_count; i++) {
-        printf("Worker %zu creating\n", i);
         WorkerParams worker_params;
         worker_params.static_root = params->static_root;
         worker_params.max_requests = params->max_requests;
@@ -120,7 +111,6 @@ Server *CreateServer(const ServerParams *params) {
             return NULL;
         }
         server->workers[i] = worker;
-        printf("Worker %zu created\n", i);
     }
     return server;
 }
@@ -172,17 +162,12 @@ int StartServer(Server *server) {
         return ERR_SERVER_MEMORY;
     }
 
-    printf("Starting workers\n");
-    printf("Worker count: %zu\n", server->worker_count);
-
     for (size_t i = 0; i < server->worker_count; i++) {
-        printf("Worker %zu starting\n", i);
         int result = StartWorker(server->workers[i]);
         if (result != ERR_OK) {
             pthread_mutex_unlock(&server->mutex);
             return ERR_SERVER_MEMORY;
         }
-        printf("Worker %zu started\n", i);
     }
 
     pthread_mutex_unlock(&server->mutex);
@@ -265,13 +250,9 @@ void _ServerLoop(void *arg) {
             }
             break;
         }
-        printf("Client connected: %d\n", clientfd);
         fcntl(clientfd, F_SETFL, fcntl(clientfd, F_GETFL, 0) | O_NONBLOCK);
-        printf("Client set to non-blocking: %d\n", clientfd);
         Worker *worker = server->workers[server->last_assigned_worker];
-        printf("Worker selected: %zu\n", server->last_assigned_worker);
         server->last_assigned_worker = (server->last_assigned_worker + 1) % server->worker_count;
-        printf("Worker assigned: %zu\n", server->last_assigned_worker);
         int result = AddRequest(worker, clientfd);
         if (result != ERR_OK) {
             close(clientfd);

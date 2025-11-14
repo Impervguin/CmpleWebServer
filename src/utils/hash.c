@@ -1,4 +1,4 @@
-#include "hash.h"
+#include "utils/hash.h"
 
 unsigned long djb2_hash(const char *key, size_t table_size) {
     unsigned long hash = 5381;

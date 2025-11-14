@@ -4,6 +4,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+// Always keep capacity at least 1 byte larger than specified
+// For null termination
+void _MakeNullTerminatedString(DynamicString *string) {
+    string->data[string->size] = '\0';
+}
 
 DynamicString *CreateDynamicString(size_t initial_capacity) {
     if (initial_capacity == 0) {
@@ -13,7 +18,7 @@ DynamicString *CreateDynamicString(size_t initial_capacity) {
     if (string == NULL) {
         return NULL;
     }
-    string->data = malloc(sizeof(char) * initial_capacity);
+    string->data = malloc(sizeof(char) * (initial_capacity + 1));
     if (string->data == NULL) {
         free(string);
         return NULL;
@@ -31,7 +36,7 @@ void DestroyDynamicString(DynamicString *string) {
 }
 
 int ExpandDynamicString(DynamicString *string, size_t additional_capacity) {
-    char *new_data = realloc(string->data, string->capacity + additional_capacity);
+    char *new_data = realloc(string->data, string->capacity + additional_capacity + 1);
     if (new_data == NULL) {
         return ERR_STRING_MEMORY;
     }
@@ -48,6 +53,7 @@ int AppendDynamicString(DynamicString *string, const char *data, size_t data_siz
     }
     memcpy(string->data + string->size, data, data_size);
     string->size += data_size;
+    _MakeNullTerminatedString(string);
     return ERR_OK;
 }
 
@@ -69,6 +75,7 @@ int SetDynamicString(DynamicString *string, const char *data, size_t data_size) 
     memset(string->data, 0, string->size);
     memcpy(string->data, data, data_size);
     string->size = data_size;
+    _MakeNullTerminatedString(string);
     return ERR_OK;
 }
 
@@ -77,7 +84,6 @@ int SetDynamicStringChar(DynamicString *string, const char *data) {
 }
 
 int PrefixDynamicString(DynamicString *string, const char *prefix, size_t prefix_size) {
-    int was_null_terminated = IsNullTerminatedString(string);
     if (prefix_size == 0) {
         return ERR_OK;
     }
@@ -90,23 +96,10 @@ int PrefixDynamicString(DynamicString *string, const char *prefix, size_t prefix
     memmove(string->data+prefix_size, string->data, string->size);
     memcpy(string->data, prefix, prefix_size);
     string->size += prefix_size;
-    if (was_null_terminated) {
-        MakeNullTerminatedString(string);
-    }
+    _MakeNullTerminatedString(string);
     return ERR_OK;
 }
 
 int PrefixDynamicStringChar(DynamicString *string, const char *prefix) {
     return PrefixDynamicString(string, prefix, strlen(prefix));
-}
-
-void MakeNullTerminatedString(DynamicString *string) {
-    string->data[string->size] = '\0';
-}
-
-int IsNullTerminatedString(DynamicString *string) {
-    if (string->data[string->size] != '\0') {
-        return 0;
-    }
-    return 1;
 }
