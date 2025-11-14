@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 #include "server/request.h"
 #include "server/consts.h"
+#include "server/errors.h"
 #include "cache/cache.h"
 #include "utils/date.h"
 
@@ -21,6 +22,7 @@ HttpRequest *CreateHttpRequest(int socketfd) {
         free(request);
         return NULL;
     }
+
     request->parsed_request.host = NULL;
 
     return request;
@@ -48,9 +50,12 @@ void _DestroyHttpResponse(HttpResponse *response) {
 }
 
 void DestroyHttpRequest(HttpRequest *request) {
-    DestroyDynamicString(request->request_buffer);
     _DestroyParsedHttpRequest(&request->parsed_request);
     _DestroyHttpResponse(&request->response);
+
+    if (request->request_buffer != NULL) {
+        DestroyDynamicString(request->request_buffer);
+    }
     free(request);
 }
 
@@ -92,6 +97,7 @@ int  ParseHttpRequest(HttpRequest *request) {
                 DestroyDynamicString(parsed_request->user_agent);
                 return err;
             }
+            MakeNullTerminatedString(parsed_request->user_agent);
         } else if (strncmp(line, "Host: ", 6) == 0) {
             parsed_request->host = CreateDynamicString(10);
             if (parsed_request->host == NULL) {
@@ -102,6 +108,7 @@ int  ParseHttpRequest(HttpRequest *request) {
                 DestroyDynamicString(parsed_request->host);
                 return err;
             }
+            MakeNullTerminatedString(parsed_request->host);
         };
     }
     // Analyze method
@@ -137,6 +144,7 @@ int  ParseHttpRequest(HttpRequest *request) {
         DestroyDynamicString(method_buffer);
         return err;
     }
+    MakeNullTerminatedString(parsed_request->path);
     
     // Http version
     char *version = NULL;
@@ -150,6 +158,7 @@ int  ParseHttpRequest(HttpRequest *request) {
         return ERR_UNSUPPORTED_HTTP_VERSION;
     }
 
+    DestroyDynamicString(method_buffer);
     request->request_parsed = true;
     return ERR_OK;
 }
@@ -173,6 +182,8 @@ ContentType _GetContentType(const char *path) {
         return CONTENT_TYPE_APPLICATION_JSON;
     } else if (strstr(path, ".xml") != NULL) {
         return CONTENT_TYPE_APPLICATION_JSON;
+    } else if (strstr(path, ".ico") != NULL) {
+        return CONTENT_TYPE_IMAGE_ICO;
     } else {
         return CONTENT_TYPE_TEXT_PLAIN;
     }
@@ -214,10 +225,50 @@ const char *_GetContentTypeString(ContentType content_type) {
             return APPLICATION_JSON_CONTENT_TYPE;
         case CONTENT_TYPE_APPLICATION_JSON:
             return APPLICATION_JSON_CONTENT_TYPE;
+        case CONTENT_TYPE_IMAGE_ICO:
+            return IMAGE_ICO_CONTENT_TYPE;
         default:
             return NULL;
     }
-}  
+}
+
+int _WriteStatusLine(HttpResponse *response, const char *version, const char *status) {
+    int err = SetDynamicStringChar(response->header_buffer, version);
+    if (err != ERR_OK) {
+        return err;
+    }
+    err = AppendDynamicStringChar(response->header_buffer, " ");
+    if (err != ERR_OK) {
+        return err;
+    }
+    err = AppendDynamicStringChar(response->header_buffer, status);
+    if (err != ERR_OK) {
+        return err;
+    }
+    err = AppendDynamicStringChar(response->header_buffer, HTTP_HEADER_DELIMITER);
+    if (err != ERR_OK) {
+        return err;
+    }
+
+    response->header_buffer = response->header_buffer;
+    return ERR_OK;
+}
+
+int _AddHeader(HttpResponse *response, const char *header, const char *value) {
+    int err = AppendDynamicStringChar(response->header_buffer, header);
+    if (err != ERR_OK) {
+        return err;
+    }
+    err = AppendDynamicStringChar(response->header_buffer, value);
+    if (err != ERR_OK) {
+        return err;
+    }
+    err = AppendDynamicStringChar(response->header_buffer, HTTP_HEADER_DELIMITER);
+    if (err != ERR_OK) {
+        return err;
+    }
+    return ERR_OK;
+}
 
 int PrepareHttpResponseHeader(HttpRequest *request) {
     if (!request->response.header_filled) {
@@ -230,23 +281,9 @@ int PrepareHttpResponseHeader(HttpRequest *request) {
         return ERR_HTTP_MEMORY;
     }
 
-    printf("Prepare response header\n");
-
     // Write status line
-
-    int err = AppendDynamicStringChar(response->header_buffer, HTTP_ONE_DOT_ONE_VERSION);
+    int err = _WriteStatusLine(response, HTTP_ONE_DOT_ONE_VERSION, HTTP_OK_STATUS);
     if (err != ERR_OK) {
-        DestroyDynamicString(response->header_buffer);
-        return err;
-    }
-    err = AppendDynamicStringChar(response->header_buffer, " ");
-    if (err != ERR_OK) {
-        DestroyDynamicString(response->header_buffer);
-        return err;
-    }
-    err = AppendDynamicStringChar(response->header_buffer, HTTP_OK_STATUS);
-    if (err != ERR_OK) {
-        DestroyDynamicString(response->header_buffer);
         return err;
     }
 
@@ -256,31 +293,33 @@ int PrepareHttpResponseHeader(HttpRequest *request) {
     if (content_type == NULL) {
         return ERR_HTTP_PARSE;
     }
-    err = AppendDynamicStringChar(response->header_buffer, HTTP_HEADER_CONTENT_TYPE);
+    err = _AddHeader(response, HTTP_HEADER_CONTENT_TYPE, content_type);
     if (err != ERR_OK) {
         return ERR_HTTP_MEMORY;
     }
-    err = AppendDynamicStringChar(response->header_buffer, content_type);
+
+    // Content-Length
+    char content_length_buffer[16];
+    int written = snprintf(content_length_buffer, sizeof(content_length_buffer), "%zu", response->header.content_length);
+    if (written < 0 || written >= (int)sizeof(content_length_buffer)) {
+        return ERR_HTTP_MEMORY;
+    }
+    err = _AddHeader(response, HTTP_HEADER_CONTENT_LENGTH, content_length_buffer);
     if (err != ERR_OK) {
         return ERR_HTTP_MEMORY;
     }
 
     // Date
-    printf("Prepare date\n");
     DynamicString *date = GetHttpDate(response->header.date);
     if (date == NULL) {
         DestroyDynamicString(response->header_buffer);
         return ERR_HTTP_MEMORY;
     }
-    printf("Date: %s\n", date->data);
-    err = AppendDynamicStringChar(response->header_buffer, HTTP_HEADER_DATE);
-    if (err != ERR_OK) {
-        return ERR_HTTP_MEMORY;
-    }
-    err = AppendDynamicStringChar(response->header_buffer, date->data);
+
+    err = _AddHeader(response, HTTP_HEADER_DATE, date->data);
     DestroyDynamicString(date);
     if (err != ERR_OK) {
-        return ERR_HTTP_MEMORY;
+        return err;
     }
 
     // Last-Modified
@@ -289,31 +328,62 @@ int PrepareHttpResponseHeader(HttpRequest *request) {
         DestroyDynamicString(response->header_buffer);
         return ERR_HTTP_MEMORY;
     }
-    err = AppendDynamicStringChar(response->header_buffer, HTTP_HEADER_LAST_MODIFIED);
-    if (err != ERR_OK) {
-        return ERR_HTTP_MEMORY;
-    }
-    err = AppendDynamicStringChar(response->header_buffer, last_modified->data);
+    err = _AddHeader(response, HTTP_HEADER_LAST_MODIFIED, last_modified->data);
     DestroyDynamicString(last_modified);
     if (err != ERR_OK) {
         return ERR_HTTP_MEMORY;
     }
 
-    // Content-Length
-    err = AppendDynamicStringChar(response->header_buffer, HTTP_HEADER_CONTENT_LENGTH);
+    err = AppendDynamicStringChar(response->header_buffer, HTTP_HEADER_DELIMITER);
     if (err != ERR_OK) {
-        return ERR_HTTP_MEMORY;
+        return err;
     }
-    char content_length_buffer[16];
-    int written = snprintf(content_length_buffer, sizeof(content_length_buffer), "%zu", response->header.content_length);
-    if (written < 0 || written >= (int)sizeof(content_length_buffer)) {
-        return ERR_HTTP_MEMORY;
-    }
-    err = AppendDynamicStringChar(response->header_buffer, content_length_buffer);
-    if (err != ERR_OK) {
+
+    return ERR_OK;
+}
+
+int PrepareHttpForbiddenResponse(HttpRequest *request) {
+    HttpResponse *response = &request->response;
+
+    response->header_buffer = CreateDynamicString(INITITAL_REQUEST_BUFFER_SIZE);
+    if (response->header_buffer == NULL) {
         return ERR_HTTP_MEMORY;
     }
 
+    int err = _WriteStatusLine(response, HTTP_ONE_DOT_ONE_VERSION, HTTP_FORBIDDEN_STATUS);
+    if (err != ERR_OK) {
+        return err;
+    }
+    return ERR_OK;
+}
+
+int PrepareHttpNotFoundResponse(HttpRequest *request) {
+    HttpResponse *response = &request->response;
+
+    response->header_buffer = CreateDynamicString(INITITAL_REQUEST_BUFFER_SIZE);
+    if (response->header_buffer == NULL) {
+        return ERR_HTTP_MEMORY;
+    }
+
+    int err = _WriteStatusLine(response, HTTP_ONE_DOT_ONE_VERSION, HTTP_NOT_FOUND_STATUS);
+    if (err != ERR_OK) {
+        return err;
+    }
+    return ERR_OK;
+}
+
+int PrepareHttpUnsupportedMethodResponse(HttpRequest *request) {
+    HttpResponse *response = &request->response;
+
+    response->header_buffer = CreateDynamicString(INITITAL_REQUEST_BUFFER_SIZE);
+    if (response->header_buffer == NULL) {
+        return ERR_HTTP_MEMORY;
+    }
+
+    int err = _WriteStatusLine(response, HTTP_ONE_DOT_ONE_VERSION, HTTP_UNSUPPORTED_METHOD_STATUS);
+    if (err != ERR_OK) {
+        return err;
+    }
     return ERR_OK;
 }
 

@@ -1,58 +1,43 @@
 #include "server/request.h"
+#include "server/worker.h"
+#include "server/server.h"
+#include "server/errors.h"
+#include "utils/string.h"
+#include "utils/strutils.h"
 
 #include<stdio.h>
 #include<string.h>
+#include<stdlib.h>
 
 
 int main(int argc, char **argv) {
-    (void)argc;
-    (void)argv;
+    if (argc != 2) {
+        printf("Usage: %s <port>\n", argv[0]);
+        return 1;
+    }
+    int port = atoi(argv[1]);
 
-    HttpRequest *request = CreateHttpRequest(0);
-    if (request == NULL) {
+    printf("Hello World!\n");
+
+    ServerParams server_params;
+    server_params.static_root = "data";
+    server_params.port = port;
+    server_params.max_cache_size = 1024 * 1024 * 1024;
+    server_params.max_cache_size *= 4;
+    server_params.max_cache_entries = 1024;
+    server_params.max_cache_entry_size =  1024 *1024; 
+    server_params.max_cache_entry_size *= 2048;
+    server_params.reader_count = 4;
+    server_params.max_requests = 1024;
+    server_params.worker_count = 8;
+    printf("Server params created\n");
+    Server *server = CreateServer(&server_params);
+    if (server == NULL) {
         return 1;
     }
 
-    char *request_buffer = "GET /hello.html HTTP/1.1\r\n"
-                           "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:78.0) Gecko/20100101 Firefox/78.0\r\n"
-                           "Host: localhost:8080\r\n"
-                           "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8\r\n"
-                           "Accept-Language: en-US,en;q=0.5\r\n"
-                           "Accept-Encoding: gzip, deflate\r\n"
-                           "Connection: keep-alive\r\n"
-                           "Upgrade-Insecure-Requests: 1\r\n"
-                           "Cache-Control: max-age=0\r\n"
-                           "\r\n";
-    DynamicString *request_dyn_buffer = CreateDynamicString(strlen(request_buffer));
-    if (request_dyn_buffer == NULL) {
-        return 1;
-    }
-    SetDynamicStringChar(request_dyn_buffer, request_buffer);
-    request->request_buffer = request_dyn_buffer;
-    printf("Request: %s\n", request->request_buffer->data);
-
-    int err = ParseHttpRequest(request);
-    if (err != ERR_OK) {
-        DestroyHttpRequest(request);
-        return 1;
-    }
-
-    printf("Parsed request: %s\n", request->parsed_request.path->data);
-
-    err = FillHttpResponseHeader(request, GetFileStat("testdata/test.txt"));
-    if (err != ERR_OK) {
-        DestroyHttpRequest(request);
-        return 1;
-    }
-
-    err = PrepareHttpResponseHeader(request);
-    if (err != ERR_OK) {
-        DestroyHttpRequest(request);
-        return 1;
-    }
-
-    printf("%s\n", request->response.header_buffer->data);
-    printf("Path: %s\n", request->parsed_request.path->data);
+    printf("Server started\n");
+    StartServer(server);
 
     return 0;
 }

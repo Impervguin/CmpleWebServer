@@ -19,9 +19,8 @@ DynamicString *CreateDynamicString(size_t initial_capacity) {
         return NULL;
     }
 
-    string->size = 1;
     string->capacity = initial_capacity;
-    string->data[0] = '\0';
+    string->size = 0;
 
     return string;
 }
@@ -53,13 +52,8 @@ int AppendDynamicString(DynamicString *string, const char *data, size_t data_siz
 }
 
 int AppendDynamicStringChar(DynamicString *string, const char *data) {
-    if (!IsNullTerminatedString(string)) {
-        return ERR_STRING_NOT_NULL_TERMINATED;
-    }
-    string->size -= 1; // remove null terminator
-    int result = AppendDynamicString(string, data, strlen(data) + 1);
+    int result = AppendDynamicString(string, data, strlen(data));
     if (result != ERR_OK) {
-        string->size += 1; // restore null terminator
         return result;
     }
     return ERR_OK;
@@ -79,11 +73,39 @@ int SetDynamicString(DynamicString *string, const char *data, size_t data_size) 
 }
 
 int SetDynamicStringChar(DynamicString *string, const char *data) {
-    return SetDynamicString(string, data, strlen(data) + 1);
+    return SetDynamicString(string, data, strlen(data));
+}
+
+int PrefixDynamicString(DynamicString *string, const char *prefix, size_t prefix_size) {
+    int was_null_terminated = IsNullTerminatedString(string);
+    if (prefix_size == 0) {
+        return ERR_OK;
+    }
+    if (string->size + prefix_size > string->capacity) {
+        if (ExpandDynamicString(string, prefix_size - string->capacity) != ERR_OK) {
+            return ERR_STRING_MEMORY;
+        }
+    }
+
+    memmove(string->data+prefix_size, string->data, string->size);
+    memcpy(string->data, prefix, prefix_size);
+    string->size += prefix_size;
+    if (was_null_terminated) {
+        MakeNullTerminatedString(string);
+    }
+    return ERR_OK;
+}
+
+int PrefixDynamicStringChar(DynamicString *string, const char *prefix) {
+    return PrefixDynamicString(string, prefix, strlen(prefix));
+}
+
+void MakeNullTerminatedString(DynamicString *string) {
+    string->data[string->size] = '\0';
 }
 
 int IsNullTerminatedString(DynamicString *string) {
-    if (string->data[string->size - 1] != '\0') {
+    if (string->data[string->size] != '\0') {
         return 0;
     }
     return 1;

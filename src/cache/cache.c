@@ -7,8 +7,10 @@
 #include <string.h>
 #include <pthread.h>
 #include <time.h>
+#include <stdio.h>
 
 struct BufferMeta {
+    pthread_mutex_t _mutex;
     pthread_rwlock_t _lock;
     const char *_key;
     unsigned long _hash;
@@ -26,6 +28,7 @@ BufferMeta *_CreateBufferMeta(const char *key, const size_t bufferSize) {
     }
 
     pthread_rwlock_init(&meta->_lock, NULL);
+    pthread_mutex_init(&meta->_mutex, NULL);
     meta->_key = key;
     meta->_hash = hash(key, bufferSize);
     meta->_reference_count = 0;
@@ -35,6 +38,7 @@ BufferMeta *_CreateBufferMeta(const char *key, const size_t bufferSize) {
 
 void _DestroyBufferMeta(BufferMeta *meta) {
     pthread_rwlock_destroy(&meta->_lock);
+    pthread_mutex_destroy(&meta->_mutex);
     free(meta);
 }
 
@@ -193,6 +197,11 @@ int _DeleteBuffer(CacheManager *manager, const char *key) {
         return ERR_KEY_NOT_FOUND;
     }
     if (strcmp(node->buffer->meta->_key, key) == 0) {
+        pthread_mutex_lock(&node->buffer->meta->_mutex);
+        if (node->buffer->meta->_reference_count != 0) {
+            pthread_mutex_unlock(&node->buffer->meta->_mutex);
+            return ERR_BUFFER_REFERENCED;
+        }
         manager->used_memory -= node->buffer->size;
         manager->entry_count--;
         manager->hash_table[key_hash] = node->next;
@@ -201,6 +210,10 @@ int _DeleteBuffer(CacheManager *manager, const char *key) {
     } else {
         while (node->next != NULL) {
             if (strcmp(node->next->buffer->meta->_key, key) == 0) {
+                if (node->buffer->meta->_reference_count != 0) {
+                    pthread_mutex_unlock(&node->buffer->meta->_mutex);
+                    return ERR_BUFFER_REFERENCED;
+                }
                 manager->used_memory -= node->next->buffer->size;
                 manager->entry_count--;
                 node->next = node->next->next;
@@ -347,7 +360,9 @@ int _freeLRUBuffersMemory(CacheManager *manager, size_t memory) {
 // If cache with this buffer do not fit to max_memory - tries to free least recently used buffers. If there are not enough buffers to free - returns ERR_MEMORY_LIMIT_EXCEEDED
 // If buffer count limit is reached - tries to free least recently used buffer. If all buffers are used - returns ERR_BUFFER_COUNT_EXCEEDED
 int CreateBuffer(CacheManager *manager, const char *key, const size_t bufferSize) {
+    printf("Creating buffer\n");
     pthread_mutex_lock(&manager->mutex);
+    printf("Locked\n");
 
     if (manager->max_buffer_size < bufferSize) {
         pthread_mutex_unlock(&manager->mutex);
@@ -426,16 +441,21 @@ ReadBuffer *_CreateReadBuffer(CacheBuffer *buffer) {
     memcpy(read_buffer, &rcb, sizeof(ReadBuffer));
 
     BufferMeta *meta = buffer->meta;
-    pthread_rwlock_wrlock(&meta->_lock);
+    
+    printf("Read buffer locked\n");
+    pthread_mutex_lock(&meta->_mutex);
+    printf("Read buffer mutex locked\n");
     meta->_reference_count++;
     meta->_last_reference_time = time(NULL);
-    pthread_rwlock_unlock(&meta->_lock);
+    pthread_mutex_unlock(&meta->_mutex);
 
     return read_buffer;
 }
 
 ReadBuffer *GetBuffer(CacheManager *manager, const char *key) {
+    printf("Getting buffer\n");
     pthread_mutex_lock(&manager->mutex);
+    printf("Locked\n");
     unsigned long key_hash = hash(key, manager->hash_table_size);
     HashTableNode *node = manager->hash_table[key_hash];
     while (node != NULL) {
@@ -445,9 +465,10 @@ ReadBuffer *GetBuffer(CacheManager *manager, const char *key) {
         node = node->next;
     }
     if (node == NULL) {
+        pthread_mutex_unlock(&manager->mutex);
         return NULL;
     }
-
+    printf("Creating read buffer\n");
     ReadBuffer *buffer = _CreateReadBuffer(node->buffer);
     if (buffer == NULL) {
         pthread_mutex_unlock(&manager->mutex);
@@ -460,9 +481,9 @@ ReadBuffer *GetBuffer(CacheManager *manager, const char *key) {
 
 void ReleaseBuffer(ReadBuffer *buffer) {
     BufferMeta *meta = buffer->meta;
-    pthread_rwlock_wrlock(&meta->_lock);
+    pthread_mutex_lock(&meta->_mutex);
     meta->_reference_count--;
-    pthread_rwlock_unlock(&meta->_lock);
+    pthread_mutex_unlock(&meta->_mutex);
 
     free(buffer);
 }
@@ -481,10 +502,10 @@ WriteBuffer *_CreateWriteBuffer(CacheBuffer *buffer) {
     memcpy(write_buffer, &wbc, sizeof(WriteBuffer));
 
     BufferMeta *meta = buffer->meta;
-    pthread_rwlock_wrlock(&meta->_lock);
+    pthread_mutex_lock(&meta->_mutex);
     meta->_reference_count++;
     meta->_last_reference_time = time(NULL);
-    pthread_rwlock_unlock(&meta->_lock);
+    pthread_mutex_unlock(&meta->_mutex);
 
     return write_buffer;
 }
@@ -515,9 +536,9 @@ WriteBuffer *GetWriteBuffer(CacheManager *manager, const char *key) {
 
 void ReleaseWriteBuffer(WriteBuffer *buffer) {
     BufferMeta *meta = buffer->meta;
-    pthread_rwlock_wrlock(&meta->_lock);
+    pthread_mutex_lock(&meta->_mutex);
     meta->_reference_count--;
-    pthread_rwlock_unlock(&meta->_lock);
+    pthread_mutex_unlock(&meta->_mutex);
 
     free(buffer);
 }

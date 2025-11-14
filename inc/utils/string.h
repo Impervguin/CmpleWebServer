@@ -22,7 +22,11 @@ int AppendDynamicStringChar(DynamicString *string, const char *data);
 int SetDynamicString(DynamicString *string, const char *data, size_t data_size);
 int SetDynamicStringChar(DynamicString *string, const char *data);
 
+int PrefixDynamicString(DynamicString *string, const char *prefix, size_t prefix_size);
+int PrefixDynamicStringChar(DynamicString *string, const char *prefix);
+
 int IsNullTerminatedString(DynamicString *string);
+void MakeNullTerminatedString(DynamicString *string);
 
 #define ERR_OK 0
 #define ERR_STRING_MEMORY 1

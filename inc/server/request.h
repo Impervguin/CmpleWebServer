@@ -35,6 +35,7 @@ typedef enum {
     CONTENT_TYPE_IMAGE_JPEG,
     CONTENT_TYPE_IMAGE_GIF,
     CONTENT_TYPE_IMAGE_SVG,
+    CONTENT_TYPE_IMAGE_ICO,
     CONTENT_TYPE_APPLICATION_JAVASCRIPT,
     CONTENT_TYPE_APPLICATION_JSON,
 } ContentType;
@@ -88,14 +89,8 @@ int ParseHttpRequest(HttpRequest *request);
 
 int FillHttpResponseHeader(HttpRequest *request, FileStatResponse stat);
 int PrepareHttpResponseHeader(HttpRequest *request);
-
-
-#define ERR_OK 0
-#define ERR_HTTP_MEMORY 1
-#define ERR_HTTP_PARSE 2
-#define ERR_UNSUPPORTED_HTTP_METHOD 3
-#define ERR_UNSUPPORTED_HTTP_VERSION 4
-#define ERR_REQUEST_NOT_PARSED 5
-#define ERR_RESPONSE_NOT_FILLED 6
+int PrepareHttpForbiddenResponse(HttpRequest *request);
+int PrepareHttpNotFoundResponse(HttpRequest *request);
+int PrepareHttpUnsupportedMethodResponse(HttpRequest *request);
 
 #endif // REQUEST_H

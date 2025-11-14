@@ -60,6 +60,7 @@ void ReleaseWriteBuffer(WriteBuffer *buffer);
 #define ERR_BUFFER_COUNT_EXCEEDED 5
 #define ERR_KEY_NOT_FOUND 6
 #define ERR_BUFFERS_USED 7
+#define ERR_BUFFER_REFERENCED 8
 
 
 #endif // CACHE_H__
