@@ -1,7 +1,8 @@
-#include "cache/cache.h"
-#include "utils/hash.h"
+
 
 #define _GNU_SOURCE
+#include "cache/cache.h"
+#include "utils/hash.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -29,7 +30,13 @@ BufferMeta *_CreateBufferMeta(const char *key, const size_t bufferSize) {
 
     pthread_rwlock_init(&meta->_lock, NULL);
     pthread_mutex_init(&meta->_mutex, NULL);
-    meta->_key = key;
+    meta->_key = strdup(key);
+    if (meta->_key == NULL) {
+        pthread_rwlock_destroy(&meta->_lock);
+        pthread_mutex_destroy(&meta->_mutex);
+        free(meta);
+        return NULL;
+    }
     meta->_hash = hash(key, bufferSize);
     meta->_reference_count = 0;
 
@@ -196,32 +203,38 @@ int _DeleteBuffer(CacheManager *manager, const char *key) {
     if (node == NULL) {
         return ERR_KEY_NOT_FOUND;
     }
+    pthread_mutex_lock(&node->buffer->meta->_mutex);
     if (strcmp(node->buffer->meta->_key, key) == 0) {
-        pthread_mutex_lock(&node->buffer->meta->_mutex);
         if (node->buffer->meta->_reference_count != 0) {
             pthread_mutex_unlock(&node->buffer->meta->_mutex);
             return ERR_BUFFER_REFERENCED;
         }
         manager->used_memory -= node->buffer->size;
         manager->entry_count--;
+        HashTableNode *to_destroy = node;
         manager->hash_table[key_hash] = node->next;
-        _DestroyHashTableNode(node);
+        pthread_mutex_unlock(&to_destroy->buffer->meta->_mutex);
+        _DestroyHashTableNode(to_destroy);
         return ERR_OK;
-    } else {
-        while (node->next != NULL) {
-            if (strcmp(node->next->buffer->meta->_key, key) == 0) {
-                if (node->buffer->meta->_reference_count != 0) {
-                    pthread_mutex_unlock(&node->buffer->meta->_mutex);
-                    return ERR_BUFFER_REFERENCED;
-                }
-                manager->used_memory -= node->next->buffer->size;
-                manager->entry_count--;
-                node->next = node->next->next;
-                _DestroyHashTableNode(node);
-                return ERR_OK;
+    }
+    pthread_mutex_unlock(&node->buffer->meta->_mutex);
+    while (node->next != NULL) {
+        pthread_mutex_lock(&node->next->buffer->meta->_mutex);
+        if (strcmp(node->next->buffer->meta->_key, key) == 0) {
+            if (node->next->buffer->meta->_reference_count != 0) {
+                pthread_mutex_unlock(&node->next->buffer->meta->_mutex);
+                return ERR_BUFFER_REFERENCED;
             }
-            node = node->next;
+            manager->used_memory -= node->next->buffer->size;
+            manager->entry_count--;
+            HashTableNode *to_destroy = node->next;
+            node->next = to_destroy->next;
+            pthread_mutex_unlock(&to_destroy->buffer->meta->_mutex);
+            _DestroyHashTableNode(to_destroy);
+            return ERR_OK;
         }
+        pthread_mutex_unlock(&node->next->buffer->meta->_mutex);
+        node = node->next;
     }
     return ERR_KEY_NOT_FOUND;
 }
@@ -441,6 +454,7 @@ ReadBuffer *_CreateReadBuffer(CacheBuffer *buffer) {
     BufferMeta *meta = buffer->meta;
     
     pthread_mutex_lock(&meta->_mutex);
+    
     meta->_reference_count++;
     meta->_last_reference_time = time(NULL);
     pthread_mutex_unlock(&meta->_mutex);
@@ -475,6 +489,7 @@ ReadBuffer *GetBuffer(CacheManager *manager, const char *key) {
 void ReleaseBuffer(ReadBuffer *buffer) {
     BufferMeta *meta = buffer->meta;
     pthread_mutex_lock(&meta->_mutex);
+    
     meta->_reference_count--;
     pthread_mutex_unlock(&meta->_mutex);
 
@@ -496,6 +511,7 @@ WriteBuffer *_CreateWriteBuffer(CacheBuffer *buffer) {
 
     BufferMeta *meta = buffer->meta;
     pthread_mutex_lock(&meta->_mutex);
+    
     meta->_reference_count++;
     meta->_last_reference_time = time(NULL);
     pthread_mutex_unlock(&meta->_mutex);

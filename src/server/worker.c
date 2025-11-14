@@ -545,6 +545,7 @@ int _ProcessRequest(Worker *worker, HttpRequest *request) {
     err = CreateBuffer(worker->cache_manager,
                        request->parsed_request->path->data,
                        stat.file_size);
+    LogDebugF("fd=%d: cache error=%d", request->socketfd, err);
     if (err != ERR_OK) {
         request->state = HTTP_STATE_ERROR;
         return ERR_HTTP_MEMORY;
@@ -600,6 +601,7 @@ int _ProcessRequest(Worker *worker, HttpRequest *request) {
     LockWriteBuffer(wb);
     FileReadSet read_set = QueueFile(worker->reader_pool, read_request);
     if (read_set.error != ERR_OK) {
+        UnlockWriteBuffer(wb);
         ReleaseWriteBuffer(wb);
         request->state = HTTP_STATE_ERROR;
         return ERR_HTTP_MEMORY;

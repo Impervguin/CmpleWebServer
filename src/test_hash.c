@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include "hash.h"
+#include "utils/hash.h"
 
 START_TEST(test_hash_empty_string)
 {
