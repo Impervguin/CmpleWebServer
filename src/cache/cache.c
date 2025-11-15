@@ -46,6 +46,7 @@ BufferMeta *_CreateBufferMeta(const char *key, const size_t bufferSize) {
 void _DestroyBufferMeta(BufferMeta *meta) {
     pthread_rwlock_destroy(&meta->_lock);
     pthread_mutex_destroy(&meta->_mutex);
+    free(meta->_key);
     free(meta);
 }
 
