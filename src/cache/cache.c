@@ -13,7 +13,7 @@
 struct BufferMeta {
     pthread_mutex_t _mutex;
     pthread_rwlock_t _lock;
-    const char *_key;
+    char *_key;
     unsigned long _hash;
 
     size_t _reference_count;
@@ -131,8 +131,6 @@ void _DestroyHashTableNode(HashTableNode *node) {
         free(node);
     }
 }
-
-typedef struct CacheManager CacheManager;
 
 struct CacheManager {
     pthread_mutex_t mutex;
