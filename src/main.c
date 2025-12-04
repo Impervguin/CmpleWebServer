@@ -51,6 +51,14 @@ size_t parse_size(const char *str) {
     return 0;
 }
 
+LogLevel parse_log_level(const char *str) {
+    if (strcasecmp(str, "debug") == 0) return LOG_LEVEL_DEBUG;
+    if (strcasecmp(str, "info") == 0) return LOG_LEVEL_INFO;
+    if (strcasecmp(str, "warn") == 0) return LOG_LEVEL_WARN;
+    if (strcasecmp(str, "error") == 0) return LOG_LEVEL_ERROR;
+    return LOG_LEVEL_INFO; // default
+}
+
 char* human_size(size_t size) {
     static char buf[32];
     if (size >= 1024LL * 1024 * 1024) {
@@ -80,6 +88,7 @@ int main(int argc, char **argv) {
         printf("  -a <num>        Number of async readers (default: 4)\n");
         printf("  -m <num>        Max requests per worker (default: 1024)\n");
         printf("  -w <num>        Number of workers (default: 8)\n");
+        printf("  -l <level>      Minimum log level (debug, info, warn, error, default: info)\n");
         printf("  -h              Show this help\n");
         return 0;
     }
@@ -93,9 +102,10 @@ int main(int argc, char **argv) {
     int reader_count = 4;
     int max_requests = 1024;
     int worker_count = 8;
+    LogLevel log_level = LOG_LEVEL_INFO;
 
     int opt;
-    while ((opt = getopt(argc, argv, "r:p:c:e:s:a:m:w:h")) != -1) {
+    while ((opt = getopt(argc, argv, "r:p:c:e:s:a:m:w:l:h")) != -1) {
         switch (opt) {
             case 'r':
                 static_root = optarg;
@@ -121,6 +131,9 @@ int main(int argc, char **argv) {
             case 'w':
                 worker_count = atoi(optarg);
                 break;
+            case 'l':
+                log_level = parse_log_level(optarg);
+                break;
             case 'h':
                 printf("Usage: %s [options]\n", argv[0]);
                 printf("Options:\n");
@@ -132,6 +145,7 @@ int main(int argc, char **argv) {
                 printf("  -a <num>        Number of async readers (default: 4)\n");
                 printf("  -m <num>        Max requests per worker (default: 1024)\n");
                 printf("  -w <num>        Number of workers (default: 8)\n");
+                printf("  -l <level>      Minimum log level (debug, info, warn, error, default: info)\n");
                 printf("  -h              Show this help\n");
                 return 0;
             default:
@@ -139,6 +153,8 @@ int main(int argc, char **argv) {
                 return 1;
         }
     }
+
+    SetMinLogLevel(log_level);
 
     // log parameters
     LogInfoF("Static root: %s", static_root);

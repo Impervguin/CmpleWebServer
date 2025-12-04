@@ -5,6 +5,7 @@
 #include <time.h>
 
 static int log_initialized = 0;
+static LogLevel min_log_level = LOG_LEVEL_INFO;
 
 static const char* get_level_string(LogLevel level) {
     switch (level) {
@@ -36,6 +37,10 @@ void LogInit(void) {
 static void Log(LogLevel level, const char* func, const char* format, va_list args) {
     if (!log_initialized) {
         LogInit();
+    }
+
+    if (level < min_log_level) {
+        return;
     }
 
     time_t now = time(NULL);
@@ -78,4 +83,8 @@ void log_error(const char* func, const char* format, ...) {
     va_start(args, format);
     Log(LOG_LEVEL_ERROR, func, format, args);
     va_end(args);
+}
+
+void SetMinLogLevel(LogLevel level) {
+    min_log_level = level;
 }

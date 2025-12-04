@@ -20,6 +20,7 @@ typedef enum {
 #define LOG_COLOR_ERROR   "\x1b[31m"  // Red
 
 void LogInit(void);
+void SetMinLogLevel(LogLevel level);
 void log_debug(const char* func, const char* format, ...);
 void log_info(const char* func, const char* format, ...);
 void log_warn(const char* func, const char* format, ...);
