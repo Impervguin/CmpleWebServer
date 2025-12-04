@@ -1,0 +1,39 @@
+@startuml components
+
+scale 2
+
+package "Ядро сервера" as ServerPkg {
+    [Сервер] as ServerComp
+    note right: Управляет жизненым циклом компонентов\nПрослушивает и принимает соединения
+}
+
+package "Пул потоков" as WorkerPkg {
+    [Рабочий поток] as WorkerComp
+    note right: Обрабатывает HTTP запрос\nУправляет их жизненным циклом\nОбеспечивает мультиплексирование
+}
+
+package "Обработка запросов" as RequestPkg {
+    [HTTP запрос] as RequestComp
+    note right: Управляет состоянием отдельного запроса\nПарсит запросы\nПодготавливает ответы
+}
+
+package "Система кэша" as CachePkg {
+    [Менеджер кэша] as CacheComp
+    note right: Управляет кэшом файлов\nОсвобождает неиспользуемые файлы при необходимости
+}
+
+package "Пул читателей" as ReaderPkg {
+    [Пул читателей] as ReaderComp
+    note right: Асинхронный пул читателей\nЧитает файлы в буфер\nРаботает на обратных вызовах
+}
+
+' Relationships
+ServerComp --> WorkerComp : Создает/Уничтожает пул рабочих потоков
+ServerComp --> CacheComp : Создает/Уничтожает менеджер кэша
+ServerComp --> ReaderComp : Создает/Уничтожает пул читателей
+
+WorkerComp --> CacheComp : Запрашивает кэши\nищет файлы
+WorkerComp --> ReaderComp : Использует для асинхронного\nчтения файлов
+WorkerComp --> RequestComp : Парсит запросы\nподготавливает ответы
+
+@enduml

@@ -1,0 +1,31 @@
+@startuml states
+
+scale 2
+
+state "ОЖИДАНИЕ ТЕЛА" as waitbody
+state "ЗАПИСЬ" as write
+state "ЗАКОНЧЕН" as finish
+state "ОШИБКА" as error
+state "ЧТЕНИЕ" as read
+state "СОЕДИНЕНИЕ" as connect
+
+[*] --> connect : Запрос принят
+connect --> read : Запрос назначен рабочему
+read --> waitbody : GET метод, файла не в кэше
+read --> write : GET метод, файл в кэше, или HEAD метод\nобрабатываемая ошибка\n(превышен размер, нет доступа к файлу, файл не найден)
+read --> error : Ошибка формата или при чтении запроса
+waitbody --> write : Файл считан в кеш
+waitbody --> error : Ошибка при чтении файла\n(нет места в кэше, некорректный файл)
+write --> finish : Ответ отправлен
+write --> error : Ошибка при записи ответа
+finish --> [*] : Очистка
+error --> [*] : Очистка
+
+
+note right of connect : Соединение установлено и запрос назначен рабочему
+note right of read : Чтение и парсинг запроса
+note right of waitbody : Асинхронное чтение файла в кеш
+note right of write : Отправка ответа клиента\n(в том числе обрабатываемая ошибка)
+note right of finish : Успешное завершение обработки запроса, закрытие соединения
+note right of error : Отправка ответа об ошибке, закрытие соединения
+@enduml

@@ -1,0 +1,27 @@
+@startuml writealgo
+scale 5
+skinparam conditionStyle InsideDiamond
+
+start
+note right : Запрос в состоянии ЗАПИСЬ
+while (Ответ отправлен полностью?) is (Нет)
+  :Мультиплексирование сокета; <<task>>
+  if (Заголовки отправлены полностью?) then (Нет)
+    :Отправка заголовков; <<task>>
+    if (Ошибка отправки?) then (Да)
+      :Состояние = ОШИБКА; <<task>>
+      stop
+    endif
+  else 
+    if (Есть тело ответа?) then (Да)
+      :Отправка тела; <<task>>
+      if (Ошибка отправки?) then (Да)
+        :Состояние = ОШИБКА; <<task>>
+        stop
+      endif
+    endif
+  endif
+endwhile
+:Состояние = ЗАКОНЧЕНО; <<task>>
+stop
+@enduml

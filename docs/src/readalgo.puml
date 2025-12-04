@@ -1,0 +1,18 @@
+@startuml readalgo
+scale 5
+skinparam conditionStyle InsideDiamond
+
+start
+note right : Запрос в состоянии ЧТЕНИЕ
+while (Чтение не завершено?) is (Да)
+  :Мультиплексирование сокета; <<task>>
+  :Чтение данных из сокета; <<task>>
+  if (Ошибка чтения?) then (Да)
+    :Состояние = ОШИБКА; <<task>>
+    stop
+  endif
+endwhile
+:Переход к парсингу запроса; <<task>>
+(А)
+
+@enduml
