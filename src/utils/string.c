@@ -31,6 +31,7 @@ DynamicString *CreateDynamicString(size_t initial_capacity) {
 }
 
 void DestroyDynamicString(DynamicString *string) {
+    if (string == NULL) return;
     free(string->data);
     free(string);
 }
@@ -88,7 +89,7 @@ int PrefixDynamicString(DynamicString *string, const char *prefix, size_t prefix
         return ERR_OK;
     }
     if (string->size + prefix_size > string->capacity) {
-        if (ExpandDynamicString(string, prefix_size - string->capacity) != ERR_OK) {
+        if (ExpandDynamicString(string, string->size + prefix_size - string->capacity) != ERR_OK) {
             return ERR_STRING_MEMORY;
         }
     }

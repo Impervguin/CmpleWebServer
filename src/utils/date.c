@@ -36,5 +36,6 @@ DynamicString *GetHttpDate(time_t date) {
         return NULL;
     }
 
+    result->size = written;
     return result;
 }

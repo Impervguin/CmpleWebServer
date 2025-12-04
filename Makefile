@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -std=c17 -Werror -Wall -Wextra -Wpedantic -Wfloat-equal -Wfloat-conversion -Wstrict-prototypes -Wvla -Iinc
+CFLAGS = -std=c17 -Werror -Wall -Wextra -Wpedantic -Wfloat-equal -Wfloat-conversion -Wstrict-prototypes -Wvla -Iinc 
 LDFLAGS = -luuid
 
 SRC_DIR = src
@@ -24,13 +24,15 @@ all-debug: CFLAGS += -g
 all-debug: $(EXECUTABLE)
 
 test: CFLAGS += -g
+test-debug: CFLAGS += -fprofile-arcs -ftest-coverage
 test: $(TEST_EXECUTABLE)
 
 test-debug: CFLAGS += -g
+test-debug: CFLAGS += -fprofile-arcs -ftest-coverage
 test-debug: $(TEST_EXECUTABLE)
 
 $(TEST_EXECUTABLE): $(TEST_OBJECTS) $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(MAIN_SOURCES))
-	$(CC) $(LDFLAGS) $^ -o $@ -lcheck -lpthread
+	$(CC) $(LDFLAGS) $^ -o $@ -lcheck -lpthread -lgcov
 
 $(EXECUTABLE): $(OBJECTS)
 	$(CC) $(LDFLAGS) $^ -o $@
@@ -41,3 +43,7 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 
 clean:
 	rm -rf $(OBJ_DIR) $(EXECUTABLE) $(TEST_EXECUTABLE)
+	find . -name "*.gcno" -delete
+	find . -name "*.gcda" -delete
+	find . -name "*.gcov" -delete
+

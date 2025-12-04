@@ -41,6 +41,9 @@
 *.su
 *.idb
 *.pdb
+*.gcno
+*.gcda
+*.gcov
 
 # Kernel Module Compile Results
 *.mod*
@@ -56,3 +59,13 @@ dkms.conf
 
 # vscode files
 .vscode
+
+# latex files
+*.aux
+*.log
+*.out
+*.toc
+*.synctex.gz
+*.bbl
+*.blg
+*.tex
