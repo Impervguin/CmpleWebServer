@@ -61,4 +61,7 @@ make all && ./main.app
 make test && ./test.app
 ```
 
+### Cool stuff
+
+![alt text](data/readme.png)
 
